@@ -1,0 +1,128 @@
+#!/bin/bash -e
+
+function help_text() {
+  cat <<HELP
+Manage GPIO pins on the BeagleBone Black
+
+Usage
+
+$(basename "$0") [OPTIONS] HEADER PIN_NO
+
+Options:
+  -c, --confirm   Apply the changes requested.
+  -e, --export    Export the GPIO pin associated with HEADER/PIN_NO
+  -h, --help      Print this message then exit
+  -i, --input     Set the pin direction to input
+  -o, --output    Set the pin direction to output
+  -u, --unexport  Unexport the GPIO pin assocaited with HEADER/PIN_NO
+
+HELP
+}
+
+function gpio_pin_path() {
+  printf "%s/gpio%d\n" "${GPIO_PIN_PATH_PREFIX:-/sys/class/gpio}" "${1:?Pin number is a required argument}"
+}
+
+function gpio_pin() {
+  local -r header="$1"
+  local -r -i pin="$2"
+  local -r header_dir="$base_dir"/pins/"$header"
+  local -r pin_dir="$header_dir"/"$pin"
+
+  if [ ! -d  "$header_dir" ]; then
+    printf "'%s' is not a valid header.\n" "$header" >&2
+    return 1
+  fi
+
+  if [ ! -d "$pin_dir" ]; then
+    printf "'%d' is not a valid pin on header '%s'" "$pin" "$header" >&2
+    return 1
+  fi
+
+  if [ ! -f "$pin_dir"/gpio ]; then
+    printf "%s %d is not a GPIO pin\n" "$header" "$pin" >&2
+    return 1
+  fi
+
+  cat "$pin_dir"/gpio
+}
+
+function main() {
+  local arg
+  local base_dir="$(cd "$(dirname "$0")"/..; pwd)"
+  local -a pin_info=()
+  local -r export_path="${GPIO_EXPORT_PATH:-/sys/class/gpio/export}"
+  local -r unexport_path="${GPIO_UNEXPORT_PATH:-/sys/class/gpio/unexport}"
+
+  while [ $# -gt 0 ]; do
+    arg="$1"
+    shift
+
+    case "$arg" in
+      -c|--confirm)
+        local -r confirm=yes
+        ;;
+      -e|--export)
+        local -r export=yes
+        ;;
+      -h|--help)
+        help_text
+        exit 0
+        ;;
+      -i|--input)
+        local -r input=yes
+        ;;
+      -o|--output)
+        local -r output=yes
+        ;;
+      -u|--unexport)
+        local -r unexport=yes
+        ;;
+      *)
+        pin_info+=("$arg")
+        ;;
+    esac
+  done
+
+  if [ "${#pin_info}" -gt 2 ]; then
+    printf "Too many arguments passed, expected 2 but got %d.\n" "${#pin_info}"
+    help_text
+    exit 1
+  fi
+
+  if [ -n "$export" ] && [ -n "$unexport" ]; then
+    printf "You cannot pass both --export and --unexport in the same call.\n" >&2
+    exit 1
+  fi
+
+  if [ "${#pin_info}" -eq 0 ]; then
+    printf "Both HEADER and PIN_NO are required arguments.\n\n" >&2
+    help_text
+    exit 1
+  elif [ "${#pin_info}" -eq 1 ]; then
+    printf "PIN_NO is required argument.\n\n" >&2
+    help_text
+    exit 1
+  fi 
+
+  local -r header="${pin_info[0]}"
+  local -r pin="${pin_info[1]}"
+  local -r -i gpio_pin="$(gpio_pin "$header" "$pin")"
+  local -r gpio_pin_path="$(gpio_pin_path "$gpio_pin")"
+
+  if [ -n "$export" ]; then
+    if [ ! -e "$gpio_pin_path" ]; then
+      printf "%d" "$gpio_pin" > "$export_path"
+    fi
+    
+    if [ -n "$output" ]; then
+      printf "out" > "$gpio_pin_path"/direction
+    fi
+
+    if [ -n "$input" ]; then
+      printf "in" > "$gpio_pin_path"/direction
+    fi
+  fi
+}
+
+main $@
