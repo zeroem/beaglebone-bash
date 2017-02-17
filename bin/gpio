@@ -56,8 +56,8 @@ export -f gpio_pin
 
 function main() {
   local -x -r base_dir="$(cd "$(dirname "$0")"/..; pwd)"
-  local -r export_path="${GPIO_EXPORT_PATH:-/sys/class/gpio/export}"
-  local -r unexport_path="${GPIO_UNEXPORT_PATH:-/sys/class/gpio/unexport}"
+  local -x -r export_path="${GPIO_EXPORT_PATH:-/sys/class/gpio/export}"
+  local -x -r unexport_path="${GPIO_UNEXPORT_PATH:-/sys/class/gpio/unexport}"
 
   local -r subcommand="${base_dir}/bin/gpio-${1}"
 

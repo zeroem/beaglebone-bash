@@ -56,18 +56,22 @@ function main() {
         ;;
       --high)
         local direction="$(one_direction "$direction" high)"
+        debug "direction is now '${direction}'"
         ;;
       -i|--input)
         local direction="$(one_direction "$direction" in)"
+        debug "direction is now '${direction}'"
         ;;
       --low)
         local direction="$(one_direction "$direction" low)"
+        debug "direction is now '${direction}'"
         ;;
       --no-debug)
         local -x debug=""
         ;;
       -o|--output)
         local direction="$(one_direction "$direction" out)"
+        debug "direction is now '${direction}'"
         ;;
       *)
         pin_info+=("$arg")
