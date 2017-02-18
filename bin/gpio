@@ -37,7 +37,7 @@ function gpio_pin() {
   fi
 
   if [ ! -d "$pin_dir" ]; then
-    printf "'%d' is not a valid pin on header '%s'" "$pin" "$header" >&2
+    printf "'%d' is not a valid pin on header '%s'\n" "$pin" "$header" >&2
     exit 1
   fi
 
@@ -186,7 +186,7 @@ function gpio_unexport() {
   fi
 }
 
-function gpio_high() {
+function gpio_set_value() {
   local arg
   local -a pin_info=()
 
@@ -197,36 +197,11 @@ function gpio_high() {
     case "$arg" in
       --debug|--no-debug)
         ;;
-      *)
-        pin_info+=("$arg")
+      --high)
+        local -r value=1
         ;;
-    esac
-  done
-
-  local -r header="${pin_info[0]}"
-  local -r pin="${pin_info[1]}"
-  local -r -i gpio_pin="$(gpio_pin "$header" "$pin")"
-  local -r gpio_pin_path="$(gpio_pin_path "$gpio_pin")"
-
-  if [ -e "$gpio_pin_path" ]; then
-    debug "Setting ${header} ${pin} as GPIO pin ${gpio_pin} HIGH."
-    printf "1" > "$gpio_pin_path"/value
-  else
-    debug "${header} ${pin}, GPIO pin ${gpio_pin}, is not exported."
-    return 1
-  fi
-}
-
-function gpio_low() {
-  local arg
-  local -a pin_info=()
-
-  while [ $# -gt 0 ]; do
-    arg="$1"
-    shift
-
-    case "$arg" in
-      --debug|--no-debug)
+      --low)
+        local -r value=0
         ;;
       *)
         pin_info+=("$arg")
@@ -234,13 +209,17 @@ function gpio_low() {
     esac
   done
 
+  validate_pin_info "${pin_info[@]}"
+
   local -r header="${pin_info[0]}"
   local -r pin="${pin_info[1]}"
   local -r -i gpio_pin="$(gpio_pin "$header" "$pin")"
   local -r gpio_pin_path="$(gpio_pin_path "$gpio_pin")"
 
+  debug "value: ${value}"
+
   if [ -e "$gpio_pin_path" ]; then
-    debug "Setting ${header} ${pin} as GPIO pin ${gpio_pin} LOW."
+    debug "Setting ${header} ${pin}, GPIO pin ${gpio_pin}, to ${value}."
     printf "0" > "$gpio_pin_path"/value
   else
     debug "${header} ${pin}, GPIO pin ${gpio_pin}, is not exported."
@@ -248,18 +227,25 @@ function gpio_low() {
   fi
 }
 
+function gpio_high() {
+  gpio_set_value "$@" --high
+  return $?
+}
+
+function gpio_low() {
+  gpio_set_value "$@" --low
+  return $?
+}
+
 function validate_pin_info() {
   if [ $# -eq 0 ]; then
-    printf "Both HEADER and PIN_NO are required arguments.\n\n" >&2
-    help_text
+    printf "Both HEADER and PIN_NO are required arguments.\n" >&2
     return 1
   elif [ $# -eq 1 ]; then
-    printf "PIN_NO is required argument.\n\n" >&2
-    help_text
+    printf "PIN_NO is required argument.\n" >&2
     return 1
   elif [ $# -gt 2 ]; then
-    printf "Too many arguments passed, expected 2 but got %d.\n\n" "$#"
-    help_text
+    printf "Too many arguments passed, expected 2 but got %d.\n" "$#" >&2
     return 1
   fi
 }
